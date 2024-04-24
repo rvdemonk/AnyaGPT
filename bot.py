@@ -85,6 +85,7 @@ async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             {"role": "assistant", "content": AI_GREETING},
         ]
         )
+        
         # Use aiohttp to download the file
         async with aiohttp.ClientSession() as session:
             async with session.get(file_url) as resp:
