@@ -10,9 +10,9 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
+from utilities import convert_audio_to_mp3, get_profile_system_prompt
 from openai import AsyncOpenAI
 from tempfile import NamedTemporaryFile
-from pydub import AudioSegment
 from pprint import pprint
 
 
@@ -34,19 +34,6 @@ conversations = {}
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-
-
-def convert_audio_to_mp3(source_path, target_path):
-    audio = AudioSegment.from_file(source_path)
-    audio.export(target_path, format="mp3")
-
-
-def get_profile_system_prompt(name):
-    try:
-        with open(f"./profiles/{name}.txt", "r", encoding="utf-8") as file:
-            return file.read()
-    except FileNotFoundError:
-        return "Profile not found. Please ensure the profile name is correct."
 
 
 async def transcribe_audio(original_file_path):
