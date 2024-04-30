@@ -24,7 +24,7 @@ client = AsyncOpenAI()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-PROFILE = "anya3"
+PROFILE = "anya5"
 AI_GREETING = (
     "Hey there! Ready to explore some ideas and have a little fun along the way? 😊"
 )
@@ -72,7 +72,7 @@ async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             {"role": "assistant", "content": AI_GREETING},
         ]
         )
-        
+
         # Use aiohttp to download the file
         async with aiohttp.ClientSession() as session:
             async with session.get(file_url) as resp:
@@ -103,7 +103,7 @@ async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Send message and get response
         ai_response = await get_gpt_response(user_id)
-        await update.message.reply_text(ai_response)
+        await update.message.reply_text(ai_response, parse_mode="Markdown")
         conversation.append({"role": "assistant", "content": ai_response})
         conversations[user_id] = conversation
         pprint(conversations[user_id])
@@ -134,7 +134,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user_id = update.message.from_user.id
     conversations[user_id] = [{"role": "assistant", "content": AI_GREETING}]
-    await update.message.reply_text(AI_GREETING)
+    await update.message.reply_text(AI_GREETING, parse_mode="Markdown")
 
 
 async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -147,7 +147,7 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ai_response = await get_gpt_response(user_id)
     print("AI:", ai_response)
 
-    await update.message.reply_text(ai_response)
+    await update.message.reply_text(ai_response, parse_mode="Markdown")
     conversations[user_id].append({"role": "assistant", "content": ai_response})
     pprint(user_id)
     pprint(conversations[user_id])
