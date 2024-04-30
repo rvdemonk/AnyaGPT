@@ -26,7 +26,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 PROFILE = "anya5"
 AI_GREETING = (
-    "Hey there! Ready to explore some ideas and have a little fun along the way? 😊"
+    "🙄 Can’t handle it on your own, huh? Alright, spill it – what do you need?"
 )
 
 conversations = {}
