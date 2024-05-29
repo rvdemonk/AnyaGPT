@@ -15,6 +15,8 @@ from openai import AsyncOpenAI
 from tempfile import NamedTemporaryFile
 from pprint import pprint
 
+from bot import *
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -51,6 +53,50 @@ async def transcribe_audio(original_file_path):
             # Cleanup: Ensure to remove the temporary file after use
             os.remove(converted_file.name)
             return transcript.text
+
+
+async def get_gpt_response(user_id):
+    model = "gpt-4-turbo"
+    sys_prompt = get_profile_system_prompt(PROFILE)
+    messages = conversations.get(
+        user_id,
+        [
+            {"role": "system", "content": get_profile_system_prompt(PROFILE)},
+            {"role": "assistant", "content": AI_GREETING},
+        ],
+    )[-4:]
+    messages[0] = {"role": "system", "content": get_profile_system_prompt(PROFILE)}
+    try:
+        print("Fetching GPT response...")
+        response = await client.chat.completions.create(model=model, messages=messages)
+        response_message = response.choices[0].message.content
+        return response_message.strip()
+    except Exception as e:
+        print(f"### An OpenAI error occurred: {e}")
+        return "Something's gone wrong and I cannot respond."
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /start is issued."""
+    user_id = update.message.from_user.id
+    conversations[user_id] = [{"role": "assistant", "content": AI_GREETING}]
+    await update.message.reply_text(AI_GREETING, parse_mode="Markdown")
+
+
+async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Reply message using GPT."""
+    user_id = update.message.from_user.id
+    user_message = update.message.text
+    print("#### text from", user_id, user_message)
+    conversations[user_id].append({"role": "user", "content": user_message})
+
+    ai_response = await get_gpt_response(user_id)
+    print("AI:", ai_response)
+
+    await update.message.reply_text(ai_response, parse_mode="Markdown")
+    conversations[user_id].append({"role": "assistant", "content": ai_response})
+    pprint(user_id)
+    pprint(conversations[user_id])
 
 
 async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -107,51 +153,6 @@ async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         conversation.append({"role": "assistant", "content": ai_response})
         conversations[user_id] = conversation
         pprint(conversations[user_id])
-
-
-async def get_gpt_response(user_id):
-    model = "gpt-4-turbo"
-    sys_prompt = get_profile_system_prompt(PROFILE)
-    messages = conversations.get(
-        user_id,
-        [
-            {"role": "system", "content": get_profile_system_prompt(PROFILE)},
-            {"role": "assistant", "content": AI_GREETING},
-        ],
-    )[-4:]
-    messages[0] = {"role": "system", "content": get_profile_system_prompt(PROFILE)}
-    try:
-        print("Fetching GPT response...")
-        response = await client.chat.completions.create(model=model, messages=messages)
-        response_message = response.choices[0].message.content
-        return response_message.strip()
-    except Exception as e:
-        print(f"### An OpenAI error occurred: {e}")
-        return "Something's gone wrong and I cannot respond."
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
-    user_id = update.message.from_user.id
-    conversations[user_id] = [{"role": "assistant", "content": AI_GREETING}]
-    await update.message.reply_text(AI_GREETING, parse_mode="Markdown")
-
-
-async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Reply message using GPT."""
-    user_id = update.message.from_user.id
-    user_message = update.message.text
-    print("#### text from", user_id, user_message)
-    conversations[user_id].append({"role": "user", "content": user_message})
-
-    ai_response = await get_gpt_response(user_id)
-    print("AI:", ai_response)
-
-    await update.message.reply_text(ai_response, parse_mode="Markdown")
-    conversations[user_id].append({"role": "assistant", "content": ai_response})
-    pprint(user_id)
-    pprint(conversations[user_id])
-
 
 if __name__ == "__main__":
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
