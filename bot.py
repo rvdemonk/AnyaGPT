@@ -20,12 +20,10 @@ from bot import *
 
 # Load environment variables from .env file
 load_dotenv()
-client = AsyncOpenAI()
 
 # Environment variables for security
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 PROFILE = "anya5"
 AI_GREETING = (
     "🙄 Can’t handle it on your own, huh? Alright, spill it – what do you need?"
@@ -36,44 +34,6 @@ conversations = {}
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-
-
-async def transcribe_audio(original_file_path):
-    # Assuming the original file might need conversion
-    # Generate a temp path for the converted file
-    with NamedTemporaryFile(delete=False, suffix=".mp3") as converted_file:
-        convert_audio_to_mp3(original_file_path, converted_file.name)
-
-        # Now, your converted file is ready for transcription
-        with open(converted_file.name, "rb") as audio_file:
-            transcript = await client.audio.transcriptions.create(
-                model="whisper-1", file=audio_file
-            )
-            print(transcript.text)
-            # Cleanup: Ensure to remove the temporary file after use
-            os.remove(converted_file.name)
-            return transcript.text
-
-
-async def get_gpt_response(user_id):
-    model = "gpt-4-turbo"
-    sys_prompt = get_profile_system_prompt(PROFILE)
-    messages = conversations.get(
-        user_id,
-        [
-            {"role": "system", "content": get_profile_system_prompt(PROFILE)},
-            {"role": "assistant", "content": AI_GREETING},
-        ],
-    )[-4:]
-    messages[0] = {"role": "system", "content": get_profile_system_prompt(PROFILE)}
-    try:
-        print("Fetching GPT response...")
-        response = await client.chat.completions.create(model=model, messages=messages)
-        response_message = response.choices[0].message.content
-        return response_message.strip()
-    except Exception as e:
-        print(f"### An OpenAI error occurred: {e}")
-        return "Something's gone wrong and I cannot respond."
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -100,6 +60,22 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    audio_file = update.message.voice or update.message.audio
+    if not audio_file:
+        raise Exception("Audio message error: Audio file received with no data.")
+
+    audio_tmp_filepath = cache_telegram_audio(audio_file)
+    transcript = await transcribe_audio(audio_tmp_filepath)
+    os.remove(audio_tmp_filepath)
+
+    # use transcript
+    # respond with transcription
+    await update.message.reply_text(f"_{transcript}_", parse_mode="Markdown")
+    # add transcript to convo as user message
+    # fetch response and return
+
+
+async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Check if the message contains an audio file or voice note
     user_id = update.message.from_user.id
     print("#### audio from", user_id)
@@ -113,10 +89,11 @@ async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         transcript = ""
         conversation = conversations.get(
-            user_id, [
-            {"role": "system", "content": get_profile_system_prompt(PROFILE)},
-            {"role": "assistant", "content": AI_GREETING},
-        ]
+            user_id,
+            [
+                {"role": "system", "content": get_profile_system_prompt(PROFILE)},
+                {"role": "assistant", "content": AI_GREETING},
+            ],
         )
 
         # Use aiohttp to download the file
@@ -153,6 +130,7 @@ async def audio_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         conversation.append({"role": "assistant", "content": ai_response})
         conversations[user_id] = conversation
         pprint(conversations[user_id])
+
 
 if __name__ == "__main__":
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
